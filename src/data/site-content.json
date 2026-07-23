@@ -1,0 +1,4 @@
+{
+  "exportedAt": null,
+  "_readme": "GIT-BASED CONTENT. To commit your admin content to GitHub: (1) In Admin > Settings click 'Export content' to download this file. (2) Save it here, replacing this file, at src/data/site-content.json. (3) git add, commit, push. Until you do, the built-in demo data is used (with live upcoming dates). Once a real export is committed here, it becomes the durable source of truth for the site."
+}

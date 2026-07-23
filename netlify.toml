@@ -1,0 +1,20 @@
+# Netlify deployment configuration
+# Docs: https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  # This is a Vite project (NOT Astro). These commands are standard for Vite.
+  command = "npm run build"
+  # vite-plugin-singlefile inlines everything into a single index.html here.
+  publish = "dist"
+
+[build.environment]
+  # Pin the Node version Netlify uses to build (Vite 7 needs Node 20+).
+  NODE_VERSION = "20"
+
+# SPA routing: the site uses clean History API routing (e.g. /about), so this
+# redirect rule is REQUIRED — it serves index.html for every path so that deep
+# links and page refreshes work instead of returning a 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
