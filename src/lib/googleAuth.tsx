@@ -68,34 +68,56 @@ export function GoogleAuthProviderWrapper({ children }: { children: ReactNode })
 
   const signInWithGoogle = useCallback(async () => {
     if (!isFirebaseConfigured || !auth) {
-      return { ok: false, error: "Authentication is not configured." };
+      return { ok: false, error: "Authentication is not configured. Check your Firebase credentials in .env" };
     }
     try {
       const provider = new GoogleAuthProvider();
-      // Restrict to NLCC domain
-      provider.setCustomParameters({
-        hd: ALLOWED_DOMAIN,
-      });
+      // NOTE: Do NOT set the 'hd' custom parameter here — it causes the popup
+      // to close immediately when the user's Google session doesn't match.
+      // We validate the domain AFTER sign-in instead.
       const result = await signInWithPopup(auth, provider);
       const googleUser = toGoogleUser(result.user);
 
-      // Validate domain
+      // Validate domain after sign-in
       if (!googleUser.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
         await fbSignOut(auth);
+        setUser(null);
         return {
           ok: false,
-          error: `Only @${ALLOWED_DOMAIN} accounts are allowed.`,
+          error: `Only @${ALLOWED_DOMAIN} accounts are allowed. You signed in as ${googleUser.email}.`,
         };
       }
 
       setUser(googleUser);
       return { ok: true, user: googleUser };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Sign-in failed.";
-      // Popup closed / cancelled
-      if (msg.includes("popup-closed") || msg.includes("cancelled")) {
-        return { ok: false, error: "" }; // silent — user cancelled
+      // Log the full error for debugging
+      console.error("[GoogleAuth] Sign-in error:", e);
+
+      // Get the Firebase error code for precise handling
+      const firebaseError = e as { code?: string; message?: string };
+      const code = firebaseError.code || "";
+      const msg = firebaseError.message || "Sign-in failed.";
+
+      // Only silence genuine user cancellations (user closed the popup themselves)
+      if (code === "auth/popup-closed-by-user") {
+        return { ok: false, error: "" };
       }
+
+      // Handle common errors with clear messages
+      if (code === "auth/popup-blocked") {
+        return { ok: false, error: "Your browser blocked the sign-in popup. Please allow popups for this site and try again." };
+      }
+      if (code === "auth/unauthorized-domain") {
+        return { ok: false, error: "This website domain is not authorised in Firebase. Add it in Firebase Console → Authentication → Settings → Authorized domains." };
+      }
+      if (code === "auth/operation-not-allowed") {
+        return { ok: false, error: "Google Sign-In is not enabled. Enable it in Firebase Console → Authentication → Sign-in method → Google." };
+      }
+      if (code === "auth/network-request-failed") {
+        return { ok: false, error: "Network error. Check your internet connection and try again." };
+      }
+
       return { ok: false, error: msg };
     }
   }, []);

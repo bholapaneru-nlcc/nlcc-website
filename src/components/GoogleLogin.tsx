@@ -3,7 +3,7 @@ import { useGoogleAuth, checkAuthorization } from "../lib/googleAuth";
 
 /* --------------------------- google login button -------------------------- */
 
-export function GoogleLoginButton({ onSuccess, label = "Sign in with Google" }: { onSuccess: () => void; label?: string }) {
+export function GoogleLoginButton({ onSuccess, onError, label = "Sign in with Google" }: { onSuccess: () => void; onError?: (error: string) => void; label?: string }) {
   const { signInWithGoogle } = useGoogleAuth();
   const [busy, setBusy] = useState(false);
 
@@ -13,8 +13,9 @@ export function GoogleLoginButton({ onSuccess, label = "Sign in with Google" }: 
     setBusy(false);
     if (result.ok && result.user) {
       onSuccess();
+    } else if (result.error && onError) {
+      onError(result.error);
     }
-    // If cancelled or failed, the error is handled by the parent component
   };
 
   return (
@@ -113,7 +114,7 @@ export function PortalLogin({
               Firebase is not configured. Set up Firebase credentials in .env to enable Google Sign-In.
             </p>
           ) : null}
-          <GoogleLoginButton onSuccess={handleLogin} />
+          <GoogleLoginButton onSuccess={handleLogin} onError={(err) => setError(err)} />
           <p className="text-center text-xs text-slate-400">Sign in with your @nlccuk.com Google account.</p>
         </div>
         <p className="mt-4 text-center">
