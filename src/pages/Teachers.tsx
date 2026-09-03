@@ -4,8 +4,6 @@ import {
   getTeacherDoc,
   getTeacherItems,
   initTeacherStore,
-  loginTeacher,
-  logoutTeacher,
   saveTeacherItem,
 } from "../lib/teacherStore";
 import type { TeacherAccount, TeacherItem } from "../lib/teacherStore";
@@ -25,6 +23,8 @@ import { TeacherRenderer } from "../components/teacher/TeacherRenderer";
 import { exportPDF, exportWord } from "../lib/teacherExport";
 import { getOrgById, initOrgStore } from "../lib/orgStore";
 import { isImageFile } from "../lib/upload";
+import { useGoogleAuth } from "../lib/googleAuth";
+import { PortalLogin } from "../components/GoogleLogin";
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30";
@@ -41,52 +41,8 @@ const PROGRESS_LEVELS: ProgressLevel[] = ["poor", "improving", "good", "excellen
 
 /* --------------------------------- login ---------------------------------- */
 
-const ACCESS_DENIED = "We're having trouble signing you in to your account. If this problem persists, please contact your administrator for assistance.";
-
-function Login({ onDone, initialError }: { onDone: (t: TeacherAccount) => void; initialError?: string }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(initialError || "");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true); setError("");
-    const result = await loginTeacher(email, password);
-    setBusy(false);
-    if (result.account) {
-      // Check org suspended or expired
-      if (result.account.orgId) {
-        const org = getOrgById(result.account.orgId);
-        if (org) {
-          const expired = org.subscriptionEnd && new Date(org.subscriptionEnd) < new Date();
-          if (org.status === "suspended" || expired) {
-            setError(ACCESS_DENIED);
-            return;
-          }
-        }
-      }
-      onDone(result.account);
-    } else {
-      // Standard message for disabled accounts; plain error for wrong credentials
-      setError(result.error === "Incorrect email or password." ? result.error : ACCESS_DENIED);
-    }
-  };
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-brand-700 to-brand p-6">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center"><span className="text-4xl">🍎</span><h1 className="mt-3 text-2xl font-black text-white">Teacher Portal</h1></div>
-        <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
-          <label className="block"><span className="text-sm font-bold text-slate-700">Email</span><input className={inputCls} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" /></label>
-          <label className="block"><span className="text-sm font-bold text-slate-700">Password</span><input className={inputCls} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" /></label>
-          {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error}</p> : null}
-          <button type="submit" disabled={busy} className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-60">{busy ? "Signing in…" : "Login"}</button>
-        </form>
-        <p className="mt-4 text-center"><a href="/" className="text-sm font-bold text-white/80 hover:underline">← Back to website</a></p>
-      </div>
-    </div>
-  );
+function Login() {
+  return <PortalLogin portalName="Teacher Portal" portalIcon="🍎" role="teacher" gradient="from-slate-900 via-brand-700 to-brand" onSuccess={() => {}} />;
 }
 
 /* ------------------------------- my content ------------------------------- */
@@ -770,7 +726,7 @@ function StudentDetail({ studentId, className, onHome }: { studentId: string; cl
 type Tab = "content" | "resources" | "classwork" | "homework" | "attendance" | "classes";
 
 export default function Teachers() {
-  const [teacher, setTeacher] = useState<TeacherAccount | null>(null);
+  const { user, loading, signOut } = useGoogleAuth();
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>("content");
   const [, setTick] = useState(0);
@@ -782,18 +738,12 @@ export default function Teachers() {
     return () => { unsub1(); unsub2(); unsub3(); };
   }, []);
 
-  useEffect(() => {
-    if (ready && !teacher) {
-      const id = sessionStorage.getItem("nlccTeacherSessionV1");
-      if (id) { const t = getTeacherDoc().accounts.find((a) => a.id === id); if (t) setTeacher(t); }
-    }
-  }, [ready, teacher]);
+  if (loading || !ready) return <div className="flex min-h-screen items-center justify-center bg-slate-900"><span className="text-sm font-bold text-white/70">Loading…</span></div>;
 
-  if (!ready) return <div className="flex min-h-screen items-center justify-center bg-slate-900"><span className="text-sm font-bold text-white/70">Loading…</span></div>;
+  // Find teacher record by Google email
+  const teacher = user ? getTeacherDoc().accounts.find((a) => a.email.toLowerCase() === user.email.toLowerCase()) : null;
 
-  // Guard: check account status + org subscription on every render.
-  // This prevents bypassing login by directly pasting inner URLs.
-  // One standard message for ALL blocked cases.
+  // Guard: check disabled + org status
   if (teacher) {
     let blocked = false;
     if (teacher.status === "disabled") blocked = true;
@@ -802,13 +752,12 @@ export default function Teachers() {
       if (org && (org.status === "suspended" || (org.subscriptionEnd && new Date(org.subscriptionEnd) < new Date()))) blocked = true;
     }
     if (blocked) {
-      logoutTeacher();
-      setTeacher(null);
-      return <Login onDone={setTeacher} initialError={ACCESS_DENIED} />;
+      void signOut();
+      return <Login />;
     }
   }
 
-  if (!teacher) return <Login onDone={setTeacher} />;
+  if (!user || !teacher) return <Login />;
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "content", label: "My Content", icon: "📝" },
@@ -836,7 +785,7 @@ export default function Teachers() {
           <div className="leading-tight"><span className="block text-sm font-black text-white">Teacher Portal</span><span className="block text-[0.7rem] text-white/60">{teacher.name}{org ? ` · ${org.name}` : ""}</span></div>
           <div className="ml-auto flex items-center gap-2">
             <a href="/" className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/20 hover:bg-white/20">Website</a>
-            <button onClick={() => { logoutTeacher(); setTeacher(null); }} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700">Logout</button>
+            <button onClick={() => void signOut()} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700">Logout</button>
           </div>
         </div>
       </header>

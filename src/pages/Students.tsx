@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   getSchool,
-  getStudentSession,
   initSchoolStore,
-  loginStudent,
-  logoutStudent,
   refreshSchool,
   submitHomework,
 } from "../lib/schoolStore";
@@ -12,61 +9,13 @@ import type { Student } from "../lib/schoolStore";
 import { TeacherRenderer } from "../components/teacher/TeacherRenderer";
 import { exportPDF, exportWord } from "../lib/teacherExport";
 import { uploadFile } from "../lib/upload";
+import { useGoogleAuth } from "../lib/googleAuth";
+import { PortalLogin } from "../components/GoogleLogin";
 import { getOrgById, initOrgStore } from "../lib/orgStore";
-
-const ACCESS_DENIED = "We're having trouble signing you in to your account. If this problem persists, please contact your administrator for assistance.";
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30";
 
-
-function Login({ onDone, initialError }: { onDone: (s: Student) => void; initialError?: string }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(initialError || "");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true); setError("");
-    const result = await loginStudent(email, password);
-    setBusy(false);
-    if (result.student) {
-      // Check class disabled
-      const cls = getSchool().classes.find((c) => c.id === result.student!.classId);
-      if (cls && cls.status === "disabled") { setError(ACCESS_DENIED); return; }
-      // Check org disabled/expired
-      if (result.student.orgId) {
-        const org = getOrgById(result.student.orgId);
-        if (org && (org.status === "suspended" || (org.subscriptionEnd && new Date(org.subscriptionEnd) < new Date()))) {
-          setError(ACCESS_DENIED);
-          return;
-        }
-      }
-      onDone(result.student);
-    } else {
-      setError(result.error === "Incorrect email or password." ? result.error : ACCESS_DENIED);
-    }
-  };
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-brand-700 to-brand p-6">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <span className="text-4xl">🎓</span>
-          <h1 className="mt-3 text-2xl font-black text-white">Student Portal</h1>
-        </div>
-        <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
-          <label className="block"><span className="text-sm font-bold text-slate-700">Email</span><input className={inputCls} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" /></label>
-          <label className="block"><span className="text-sm font-bold text-slate-700">Password</span><input className={inputCls} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" /></label>
-          {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error}</p> : null}
-          <button type="submit" disabled={busy} className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-60">{busy ? "Signing in…" : "Login"}</button>
-        </form>
-        <p className="mt-4 text-center"><a href="/" className="text-sm font-bold text-white/80 hover:underline">← Back to website</a></p>
-      </div>
-    </div>
-  );
-}
 
 function StudentApp({ student, onLogout }: { student: Student; onLogout: () => void }) {
   const [tab, setTab] = useState<"work" | "homework">("work");
@@ -251,26 +200,22 @@ function HomeworkCard({ homeworkId, title, instructions, dueDate, resourceId, st
 }
 
 export default function Students() {
-  const [student, setStudent] = useState<Student | null>(null);
-  const [ready, setReady] = useState(false);
+  const { user, loading, signOut } = useGoogleAuth();
   const [, setTick] = useState(0);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const unsub = initSchoolStore(() => { setReady(true); setTick((t) => t + 1); });
-    return () => unsub();
+    const unsub1 = initSchoolStore(() => { setReady(true); setTick((t) => t + 1); });
+    const unsub2 = initOrgStore(() => setTick((t) => t + 1));
+    return () => { unsub1(); unsub2(); };
   }, []);
 
-  useEffect(() => {
-    if (ready && !student) {
-      const s = getStudentSession();
-      if (s) setStudent(s);
-    }
-  }, [ready, student]);
+  if (loading || !ready) return <div className="flex min-h-screen items-center justify-center bg-slate-900"><span className="text-sm font-bold text-white/70">Loading…</span></div>;
 
-  if (!ready) return <div className="flex min-h-screen items-center justify-center bg-slate-900"><span className="text-sm font-bold text-white/70">Loading…</span></div>;
+  // Find student record by Google email
+  const student = user ? getSchool().students.find((s) => s.email.toLowerCase() === user.email.toLowerCase()) : null;
 
-  // Guard: check account + class + org status on every render.
-  // One standard message for ALL blocked cases.
+  // Guard: check class + org status
   if (student) {
     let blocked = false;
     if (student.status === "disabled") blocked = true;
@@ -283,12 +228,19 @@ export default function Students() {
       if (org && (org.status === "suspended" || (org.subscriptionEnd && new Date(org.subscriptionEnd) < new Date()))) blocked = true;
     }
     if (blocked) {
-      logoutStudent();
-      setStudent(null);
-      return <Login onDone={setStudent} initialError={ACCESS_DENIED} />;
+      void signOut();
+      return <PortalLogin portalName="Student Portal" portalIcon="🎓" role="student" gradient="from-slate-900 via-brand-700 to-brand" onSuccess={() => {}} />;
     }
   }
 
-  if (!student) return <Login onDone={setStudent} />;
-  return <StudentApp student={student} onLogout={() => { logoutStudent(); setStudent(null); }} />;
+  if (!user) {
+    return <PortalLogin portalName="Student Portal" portalIcon="🎓" role="student" gradient="from-slate-900 via-brand-700 to-brand" onSuccess={() => {}} />;
+  }
+
+  if (!student) {
+    // Google authenticated but no student record
+    return <PortalLogin portalName="Student Portal" portalIcon="🎓" role="student" gradient="from-slate-900 via-brand-700 to-brand" onSuccess={() => {}} />;
+  }
+
+  return <StudentApp student={student} onLogout={() => void signOut()} />;
 }

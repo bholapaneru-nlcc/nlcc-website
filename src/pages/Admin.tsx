@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLogo, useStore } from "../lib/store";
-import { useAuth } from "../lib/auth";
+import { useGoogleAuth } from "../lib/googleAuth";
+import { PortalLogin } from "../components/GoogleLogin";
 import { type Article, type NlccData } from "../lib/nlcc";
 import ArticleBuilder from "../components/admin/ArticleBuilder";
 import { ImageUploader } from "../components/ImageUploader";
@@ -115,47 +116,7 @@ const COLLECTION_CONFIG: Record<string, { key: keyof NlccData; title: string; ki
 /* -------------------------------- login ----------------------------------- */
 
 function LoginScreen() {
-  const { signIn, mode } = useAuth();
-  const logo = useLogo();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    const result = await signIn(email, password);
-    setBusy(false);
-    if (!result.ok) setError(result.error || "Login failed.");
-  };
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-brand-700 to-brand p-6">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <img src={logo} alt="NLCC" className="h-24 w-24 rounded-2xl bg-white/10 p-1.5 shadow-xl ring-1 ring-white/30" />
-          <h1 className="mt-4 text-2xl font-black text-white">NLCC Admin</h1>
-          <p className="mt-1 text-sm text-white/70">Manage articles, events, schedule and more.</p>
-        </div>
-        <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
-          <Field label="Email"><input className={inputCls} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="off" name="nlcc-off-email" /></Field>
-          <Field label="Password"><input className={inputCls} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="off" name="nlcc-off-pass" /></Field>
-          {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error}</p> : null}
-          <button type="submit" disabled={busy} className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-black text-white transition hover:bg-brand-700 disabled:opacity-60">
-            {busy ? "Signing in…" : "Login"}
-          </button>
-          <p className="text-center text-xs text-slate-400">
-            {mode === "local" ? "Secured admin login." : "Secured by Firebase Auth."}
-          </p>
-        </form>
-        <p className="mt-4 text-center">
-          <a href="/" className="text-sm font-bold text-white/80 underline-offset-2 hover:text-white hover:underline">← Back to website</a>
-        </p>
-      </div>
-    </div>
-  );
+  return <PortalLogin portalName="NLCC Admin" portalIcon="⚙️" role="admin" gradient="from-slate-900 via-brand-700 to-brand" onSuccess={() => {}} />;
 }
 
 /* ----------------------------- generic editor ----------------------------- */

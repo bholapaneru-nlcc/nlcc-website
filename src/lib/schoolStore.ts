@@ -6,6 +6,7 @@ import {
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
 import { hashPassword } from "./teacherStore";
+import { cleanForFirestore } from "./firestoreUtils";
 
 /* ------------------------------ school store ------------------------------ */
 //
@@ -242,12 +243,21 @@ export function refreshSchool(): void {
   notify();
 }
 
+let lastPersistError = "";
+export function getPersistError(): string { return lastPersistError; }
+
 async function persist(next: SchoolData): Promise<void> {
   cache = next;
   notify();
   writeLocal(next);
   if (isFirebaseConfigured && db) {
-    await setDoc(doc(db, DOC_PATH.collection, DOC_PATH.id), next as unknown as Record<string, unknown>);
+    try {
+      await setDoc(doc(db, DOC_PATH.collection, DOC_PATH.id), cleanForFirestore(next) as unknown as Record<string, unknown>);
+      lastPersistError = "";
+    } catch (e) {
+      lastPersistError = e instanceof Error ? e.message : "Firestore write failed. Check your security rules.";
+      console.error("[schoolStore] Firestore write failed:", lastPersistError);
+    }
   }
 }
 

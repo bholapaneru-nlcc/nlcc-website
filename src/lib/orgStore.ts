@@ -5,6 +5,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { cleanForFirestore } from "./firestoreUtils";
 
 /* ----------------------------- organisation store ------------------------- */
 //
@@ -144,7 +145,11 @@ async function persist(next: OrgData): Promise<void> {
   notify();
   writeLocal(next);
   if (isFirebaseConfigured && db) {
-    await setDoc(doc(db, DOC_PATH.collection, DOC_PATH.id), next as unknown as Record<string, unknown>);
+    try {
+      await setDoc(doc(db, DOC_PATH.collection, DOC_PATH.id), cleanForFirestore(next) as unknown as Record<string, unknown>);
+    } catch (e) {
+      console.error("[orgStore] Firestore write failed:", e instanceof Error ? e.message : e);
+    }
   }
 }
 

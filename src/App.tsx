@@ -1,5 +1,5 @@
 import { StoreProvider, useLinkInterceptor, useRoute } from "./lib/store";
-import { AuthProvider } from "./lib/auth";
+import { GoogleAuthProviderWrapper } from "./lib/googleAuth";
 import { AppShell } from "./components/Layout";
 import Home from "./pages/Home";
 import Articles from "./pages/Articles";
@@ -66,9 +66,9 @@ function Router() {
 export default function App() {
   return (
     <StoreProvider>
-      <AuthProvider>
+      <GoogleAuthProviderWrapper>
         <Router />
-      </AuthProvider>
+      </GoogleAuthProviderWrapper>
     </StoreProvider>
   );
 }
