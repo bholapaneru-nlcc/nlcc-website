@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLogo, useStore } from "../lib/store";
 import { useGoogleAuth } from "../lib/googleAuth";
 import { PortalLogin } from "../components/GoogleLogin";
+import { getAdminEmails, initAdminStore } from "../lib/adminStore";
 import { type Article, type NlccData } from "../lib/nlcc";
 import ArticleBuilder from "../components/admin/ArticleBuilder";
 import { ImageUploader } from "../components/ImageUploader";
@@ -974,10 +975,16 @@ const TABS = [
 ];
 
 export default function Admin() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut } = useGoogleAuth();
   const { persistError, clearPersistError } = useStore();
   const logo = useLogo();
   const [tab, setTab] = useState("dashboard");
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const unsub = initAdminStore(() => setTick((t) => t + 1));
+    return () => unsub();
+  }, []);
 
   if (loading) {
     return (
@@ -987,7 +994,11 @@ export default function Admin() {
     );
   }
 
-  if (!user) return <LoginScreen />;
+  // Check if the Google-authenticated user is an authorised admin
+  const adminEmails = getAdminEmails();
+  const isAdmin = user && adminEmails.some((e) => e.toLowerCase() === user.email.toLowerCase());
+
+  if (!user || !isAdmin) return <LoginScreen />;
 
   const go = (next: string) => setTab(next);
 
