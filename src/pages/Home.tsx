@@ -178,7 +178,7 @@ export default function Home() {
           </p>
         )}
       </SideCard>
-      <SideCard title="Our Annual Programmes" tone="red">
+      <SideCard title="NLCC Programmes" tone="red">
         {annual.length ? (
           annual.map((item) => <EventItem key={item.id} item={item} />)
         ) : (
