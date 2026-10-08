@@ -10,9 +10,11 @@ import type { TeacherAccount, TeacherItem } from "../lib/teacherStore";
 import {
   deleteHomework,
   getSchool,
+  deleteReport,
   initSchoolStore,
   saveAttendance,
   saveHomework,
+  saveReport,
   saveResource,
   setProgress,
   setSubmissionStatus,
@@ -22,7 +24,7 @@ import { TeacherBuilder } from "../components/teacher/TeacherBuilder";
 import { TeacherRenderer } from "../components/teacher/TeacherRenderer";
 import { exportPDF, exportWord } from "../lib/teacherExport";
 import { getOrgById, initOrgStore } from "../lib/orgStore";
-import { isImageFile } from "../lib/upload";
+import { isImageFile, uploadFile } from "../lib/upload";
 import { useGoogleAuth } from "../lib/googleAuth";
 import { PortalLogin } from "../components/GoogleLogin";
 
@@ -481,7 +483,7 @@ function MyClasses({ teacher }: { teacher: TeacherAccount }) {
 
   // Student detail view
   if (openStudent) {
-    return <StudentDetail studentId={openStudent} className={cls?.name || ""} onHome={() => setOpenStudent(null)} />;
+    return <StudentDetail studentId={openStudent} className={cls?.name || ""} onHome={() => setOpenStudent(null)} teacherName={teacher.name} />;
   }
 
   return (
@@ -514,9 +516,93 @@ function MyClasses({ teacher }: { teacher: TeacherAccount }) {
   );
 }
 
+/* --------------------------- student reports ------------------------------ */
+// Teachers upload documents (e.g. exam results) for each student with a title
+// and a date when it becomes viewable in the student's portal.
+
+function StudentReports({ studentId, uploadedBy }: { studentId: string; uploadedBy: string }) {
+  const [, setTick] = useState(0);
+  const refresh = () => setTick((t) => t + 1);
+  const school = getSchool();
+  const reports = school.reports.filter((r) => r.studentId === studentId);
+  const [uploading, setUploading] = useState(false);
+  const [title, setTitle] = useState("");
+  const [viewDate, setViewDate] = useState(new Date().toISOString().slice(0, 10));
+  const [fileUrl, setFileUrl] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [error, setError] = useState("");
+
+  const handleFile = async (file?: File) => {
+    if (!file) return;
+    setUploading(true); setError("");
+    try {
+      const res = await uploadFile(file);
+      setFileUrl(res.url);
+      setFileName(file.name);
+    } catch { setError("Upload failed. Try a smaller file."); }
+    setUploading(false);
+  };
+
+  const save = async () => {
+    if (!title.trim()) { setError("Enter a title (e.g. Autumn Exam)."); return; }
+    if (!fileUrl) { setError("Please upload a file first."); return; }
+    await saveReport({
+      id: `rep-${Date.now().toString(36)}`, studentId, title, date: viewDate,
+      fileName, fileUrl, uploadedAt: new Date().toISOString(), uploadedBy,
+    });
+    setTitle(""); setFileUrl(""); setFileName(""); setError("");
+    refresh();
+  };
+
+  return (
+    <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5 shadow-sm">
+      <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-violet-700">📄 Reports & Documents</h3>
+
+      {/* Upload form */}
+      <div className="mb-4 space-y-2">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Report title (e.g. Autumn Exam)" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" type="date" value={viewDate} onChange={(e) => setViewDate(e.target.value)} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white hover:bg-violet-700">
+            {uploading ? "Uploading…" : "📎 Upload file"}
+            <input type="file" className="hidden" disabled={uploading} onChange={(e) => handleFile(e.target.files?.[0])} />
+          </label>
+          {fileName ? <span className="text-xs font-bold text-emerald-600">✓ {fileName}</span> : null}
+          <button onClick={save} className="rounded-lg bg-brand px-4 py-2 text-xs font-black text-white hover:bg-brand-700">Save Report</button>
+        </div>
+        {error ? <p className="text-xs font-bold text-rose-600">{error}</p> : null}
+      </div>
+
+      {/* Report list */}
+      {reports.length === 0 ? <p className="text-sm text-slate-400">No reports uploaded yet.</p> : (
+        <div className="space-y-2">
+          {reports.map((r) => {
+            const viewable = new Date(r.date) <= new Date();
+            return (
+              <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-3">
+                <div className="min-w-0">
+                  <strong className="block truncate text-slate-900">{r.title}</strong>
+                  <span className="text-xs text-slate-500">Viewable from: {r.date} · By: {r.uploadedBy}</span>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {!viewable ? <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Scheduled</span> : null}
+                  <a href={r.fileUrl} download={r.fileName} target="_blank" rel="noreferrer" className="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">⬇ Download</a>
+                  <button onClick={async () => { if (confirm("Delete this report?")) { await deleteReport(r.id); refresh(); } }} className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">Delete</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ----------------------------- student detail ----------------------------- */
 
-function StudentDetail({ studentId, className, onHome }: { studentId: string; className: string; onHome: () => void }) {
+function StudentDetail({ studentId, className, onHome, teacherName }: { studentId: string; className: string; onHome: () => void; teacherName: string }) {
   const [, setTick] = useState(0);
   const refresh = () => setTick((t) => t + 1);
   const school = getSchool();
@@ -621,6 +707,9 @@ function StudentDetail({ studentId, className, onHome }: { studentId: string; cl
         <textarea className={`${inputCls} min-h-[60px]`} placeholder="Note for the student/parent" value={note} onChange={(e) => setNote(e.target.value)} />
         <button onClick={async () => { await setProgress(studentId, level, note); refresh(); }} className="mt-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700">Save progress</button>
       </div>
+
+      {/* Section: Reports / Documents (violet) */}
+      <StudentReports studentId={student.id} uploadedBy={teacherName} />
 
       {/* Section 3: Assign individual homework (amber) */}
       <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm">

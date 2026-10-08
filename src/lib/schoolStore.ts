@@ -38,7 +38,7 @@ export interface Student {
   id: string;
   name: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string; // no longer used — Google Sign-In only
   classId: string;
   parentName: string;
   parentEmail: string;
@@ -102,6 +102,17 @@ export interface ProgressRecord {
   updatedAt: string;
 }
 
+export interface StudentReport {
+  id: string;
+  studentId: string;
+  title: string;
+  date: string; // when this becomes viewable to the student
+  fileName: string;
+  fileUrl: string;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 export interface SchoolData {
   classes: SchoolClass[];
   students: Student[];
@@ -110,6 +121,7 @@ export interface SchoolData {
   submissions: HomeworkSubmission[];
   attendance: AttendanceRecord[];
   progress: ProgressRecord[];
+  reports: StudentReport[];
   progressLabels: ProgressLevel[];
 }
 
@@ -121,6 +133,7 @@ const EMPTY: SchoolData = {
   submissions: [],
   attendance: [],
   progress: [],
+  reports: [],
   progressLabels: ["poor", "improving", "good", "excellent"],
 };
 
@@ -145,6 +158,7 @@ function normalise(d: Partial<SchoolData> | null | undefined): SchoolData {
     submissions: Array.isArray(d?.submissions) ? d!.submissions : [],
     attendance: Array.isArray(d?.attendance) ? d!.attendance : [],
     progress: Array.isArray(d?.progress) ? d!.progress : [],
+    reports: Array.isArray(d?.reports) ? d!.reports : [],
     progressLabels: Array.isArray(d?.progressLabels) && d!.progressLabels.length ? d!.progressLabels : ["poor", "improving", "good", "excellent"],
   };
 }
@@ -300,7 +314,7 @@ export async function resetAllClasses(): Promise<void> {
 /* ------------------------------- students --------------------------------- */
 
 export async function createStudent(
-  name: string, email: string, password: string, classId: string,
+  name: string, email: string, classId: string,
   parentName: string, parentEmail: string, orgId: string,
 ): Promise<Student> {
   const e = email.trim().toLowerCase();
@@ -309,7 +323,7 @@ export async function createStudent(
   }
   const s: Student = {
     id: uid("s"), name: name.trim(), email: e,
-    passwordHash: await hashPassword(password), classId,
+    classId,
     parentName: parentName.trim(), parentEmail: parentEmail.trim(),
     createdAt: today(), orgId,
   };
@@ -429,6 +443,22 @@ export async function setProgress(studentId: string, level: ProgressLevel, note:
 
 export async function setProgressLabels(labels: ProgressLevel[]): Promise<void> {
   await persist({ ...cache, progressLabels: labels });
+}
+
+/* ------------------------------- reports ---------------------------------- */
+
+export async function saveReport(report: StudentReport): Promise<void> {
+  const exists = cache.reports.some((r) => r.id === report.id);
+  const reports = exists ? cache.reports.map((r) => (r.id === report.id ? report : r)) : [...cache.reports, report];
+  await persist({ ...cache, reports });
+}
+
+export async function deleteReport(id: string): Promise<void> {
+  await persist({ ...cache, reports: cache.reports.filter((r) => r.id !== id) });
+}
+
+export function getStudentReports(studentId: string): StudentReport[] {
+  return cache.reports.filter((r) => r.studentId === studentId);
 }
 
 export const newResource = (teacherId: string): Resource => ({

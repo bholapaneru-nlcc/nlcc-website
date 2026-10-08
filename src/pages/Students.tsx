@@ -18,7 +18,7 @@ const inputCls =
 
 
 function StudentApp({ student, onLogout }: { student: Student; onLogout: () => void }) {
-  const [tab, setTab] = useState<"work" | "homework">("work");
+  const [tab, setTab] = useState<"work" | "homework" | "reports">("work");
   const [, setTick] = useState(0);
   // Refresh from storage on mount (picks up homework assigned in another tab),
   // then subscribe to live updates.
@@ -60,7 +60,7 @@ function StudentApp({ student, onLogout }: { student: Student; onLogout: () => v
         </div>
       </header>
       <main className="mx-auto w-full max-w-[1100px] p-4 sm:p-7">
-        <nav className="mb-6 flex flex-wrap gap-2">{navBtn("work", "Classwork", "📚")}{navBtn("homework", "Homework", "📝")}</nav>
+        <nav className="mb-6 flex flex-wrap gap-2">{navBtn("work", "Classwork", "📚")}{navBtn("homework", "Homework", "📝")}{navBtn("reports", "Reports", "📄")}</nav>
 
         {tab === "work" && (
           <div className="space-y-4">
@@ -96,6 +96,30 @@ function StudentApp({ student, onLogout }: { student: Student; onLogout: () => v
               </p>
             ) : null}
             {myHomework.map((h) => <HomeworkCard key={h.id} homeworkId={h.id} title={h.title} instructions={h.instructions} dueDate={h.dueDate} resourceId={h.resourceId} studentId={student.id} />)}
+          </div>
+        )}
+
+        {tab === "reports" && (
+          <div className="space-y-4">
+            <h1 className="text-2xl font-extrabold text-slate-900">Reports</h1>
+            {(() => {
+              const reports = getSchool().reports.filter((r) => r.studentId === student.id && new Date(r.date) <= new Date());
+              return reports.length === 0 ? (
+                <p className="card-panel text-slate-500">No reports available yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {reports.map((r) => (
+                    <div key={r.id} className="card-panel flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <strong className="block truncate text-slate-900">{r.title}</strong>
+                        <span className="text-sm text-slate-500">Date: {r.date}</span>
+                      </div>
+                      <a href={r.fileUrl} download={r.fileName} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg bg-brand px-4 py-2 text-xs font-black text-white hover:bg-brand-700">⬇ Download</a>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 

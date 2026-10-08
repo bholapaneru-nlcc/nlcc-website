@@ -237,7 +237,7 @@ async function persist(next: TeacherDoc): Promise<void> {
 
 /* ------------------------------ account mgmt ------------------------------ */
 
-export async function createTeacher(name: string, email: string, password: string, orgId?: string): Promise<void> {
+export async function createTeacher(name: string, email: string, orgId?: string): Promise<void> {
   const e = email.trim().toLowerCase();
   if (cache.accounts.some((a) => a.email.toLowerCase() === e)) {
     throw new Error("A teacher with that email already exists.");
@@ -246,7 +246,7 @@ export async function createTeacher(name: string, email: string, password: strin
     id: `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     name: name.trim(),
     email: e,
-    passwordHash: await hashPassword(password),
+    passwordHash: "",
     createdAt: new Date().toISOString(),
     orgId: orgId || "",
     status: "active",
