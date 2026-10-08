@@ -58,10 +58,17 @@ function MyContent({ teacher }: { teacher: TeacherAccount }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const persist = (item: TeacherItem) => {
-    void saveTeacherItem(teacher.id, item);
+    // BUG FIX: New items come with id: "" which causes saveTeacherItem to
+    // REPLACE the previous item (it matches by id). Generate a unique ID
+    // for every new item so each one is appended, not overwritten.
+    const id = item.id || `item-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const savedItem = { ...item, id };
+
+    void saveTeacherItem(teacher.id, savedItem);
     void saveResource({
-      id: item.id, teacherId: teacher.id, title: item.title || "Untitled",
-      type: "lesson", blocks: item.blocks, classIds: [], createdAt: item.createdAt || new Date().toISOString(),
+      id: savedItem.id, teacherId: teacher.id, title: savedItem.title || "Untitled",
+      type: "lesson", blocks: savedItem.blocks, classIds: [], createdAt: savedItem.createdAt || new Date().toISOString(),
+      writerName: savedItem.writerName, titleAlign: savedItem.titleAlign, coverImage: savedItem.coverImage,
     });
     setEditing(null); refresh();
   };
@@ -77,7 +84,15 @@ function MyContent({ teacher }: { teacher: TeacherAccount }) {
           <button onClick={() => exportPDF(viewing)} className="rounded-lg bg-brand px-4 py-2 text-xs font-black text-white hover:bg-brand-700">⬇ PDF</button>
         </div>
       </div>
-      <div className="card-panel"><div className="mb-4"><span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand">{TYPE_LABEL[viewing.type]}</span><h1 className="mt-2 text-2xl font-extrabold text-slate-900">{viewing.title}</h1></div><TeacherRenderer blocks={viewing.blocks} /></div>
+      <div className="card-panel">
+        <div className="mb-4" style={{ textAlign: viewing.titleAlign === "centre" ? "center" : viewing.titleAlign === "right" ? "right" : "left" }}>
+          {viewing.coverImage ? <img src={viewing.coverImage} alt="" className="float-left mb-3 mr-5 rounded-xl" style={{ width: 220, height: "auto" }} /> : null}
+          <h1 className="text-2xl font-extrabold text-slate-900">{viewing.title}</h1>
+          {viewing.writerName ? <p className="mt-1 text-sm font-semibold text-slate-500">By {viewing.writerName}</p> : null}
+          <span className="block clear-both" />
+        </div>
+        <TeacherRenderer blocks={viewing.blocks} />
+      </div>
     </div>
   );
 

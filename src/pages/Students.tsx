@@ -70,15 +70,19 @@ function StudentApp({ student, onLogout }: { student: Student; onLogout: () => v
               const r = school.resources.find((res) => res.id === c.resourceId);
               return (
               <div key={c.id} className="card-panel">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div><span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[0.65rem] font-black uppercase text-brand">Classwork</span><h2 className="mt-1 text-lg font-extrabold text-slate-900">{c.title}</h2>{c.dueDate ? <span className="text-xs text-slate-400">Due: {c.dueDate}</span> : null}</div>
-                  {r ? <div className="flex gap-2">
-                    <button onClick={() => exportWord({ id: r.id, title: r.title, type: r.type as never, blocks: r.blocks as never, createdAt: r.createdAt, updatedAt: r.createdAt } as never)} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-50">📄 Word</button>
-                    <button onClick={() => exportPDF({ id: r.id, title: r.title, type: r.type as never, blocks: r.blocks as never, createdAt: r.createdAt, updatedAt: r.createdAt } as never)} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-black text-white hover:bg-brand-700">⬇ PDF</button>
-                  </div> : null}
+                <div className="mb-3" style={{ textAlign: r?.titleAlign === "centre" ? "center" : r?.titleAlign === "right" ? "right" : "left" }}>
+                  {r?.coverImage ? <img src={r.coverImage} alt="" className="float-left mb-3 mr-5 rounded-xl" style={{ width: 200, height: "auto" }} /> : null}
+                  <h2 className="text-lg font-extrabold text-slate-900">{c.title}</h2>
+                  {r?.writerName ? <p className="mt-0.5 text-sm font-semibold text-slate-500">By {r.writerName}</p> : null}
+                  {c.dueDate ? <span className="text-xs text-slate-400">Due: {c.dueDate}</span> : null}
+                  <span className="block clear-both" />
                 </div>
                 {c.instructions ? <p className="mb-2 text-sm text-slate-600">{c.instructions}</p> : null}
                 {r ? <TeacherRenderer blocks={r.blocks as never} /> : null}
+                {r ? <div className="mt-3 flex justify-end gap-2">
+                  <button onClick={() => exportWord({ id: r.id, title: r.title, type: r.type as never, blocks: r.blocks as never, createdAt: r.createdAt, updatedAt: r.createdAt } as never)} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-50">📄 Word</button>
+                  <button onClick={() => exportPDF({ id: r.id, title: r.title, type: r.type as never, blocks: r.blocks as never, createdAt: r.createdAt, updatedAt: r.createdAt } as never)} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-black text-white hover:bg-brand-700">⬇ PDF</button>
+                </div> : null}
               </div>
               );
             })}
@@ -190,6 +194,12 @@ function HomeworkCard({ homeworkId, title, instructions, dueDate, resourceId, st
           </button>
           {showResource ? (
             <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+              <div className="mb-3" style={{ textAlign: resource.titleAlign === "centre" ? "center" : resource.titleAlign === "right" ? "right" : "left" }}>
+                {resource.coverImage ? <img src={resource.coverImage} alt="" className="float-left mb-3 mr-4 rounded-xl" style={{ width: 180, height: "auto" }} /> : null}
+                <h3 className="text-lg font-extrabold text-slate-900">{resource.title}</h3>
+                {resource.writerName ? <p className="mt-0.5 text-sm font-semibold text-slate-500">By {resource.writerName}</p> : null}
+                <span className="block clear-both" />
+              </div>
               <div className="mb-3 flex gap-2">
                 <button onClick={() => exportWord({ id: resource.id, title: resource.title, type: resource.type as never, blocks: resource.blocks as never, createdAt: resource.createdAt, updatedAt: resource.createdAt } as never)} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-50">📄 Word</button>
                 <button onClick={() => exportPDF({ id: resource.id, title: resource.title, type: resource.type as never, blocks: resource.blocks as never, createdAt: resource.createdAt, updatedAt: resource.createdAt } as never)} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-black text-white hover:bg-brand-700">⬇ PDF</button>

@@ -67,6 +67,9 @@ export interface TeacherItem {
   id: string;
   type: ContentType;
   title: string;
+  writerName?: string;
+  titleAlign?: "left" | "centre" | "center" | "right";
+  coverImage?: string;
   blocks: TeacherBlock[];
   createdAt: string;
   updatedAt: string;

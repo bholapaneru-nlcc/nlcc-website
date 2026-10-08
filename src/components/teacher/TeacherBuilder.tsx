@@ -2,9 +2,9 @@ import { useState } from "react";
 import { RichText } from "../RichText";
 import { ImageUploader } from "../ImageUploader";
 import { uploadFile } from "../../lib/upload";
+import type { TeacherItem } from "../../lib/teacherStore";
 import { SHAPE_OPTIONS, Shape, type ShapeKind } from "./Shape";
 import { TeacherRenderer, type TeacherBlock } from "./TeacherRenderer";
-import type { ContentType, TeacherItem } from "../../lib/teacherStore";
 
 /* ----------------------------- shared styles ------------------------------ */
 
@@ -445,15 +445,42 @@ export function TeacherBuilder({
       </div>
 
       <section className="card-panel grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2"><Field label="Title"><input className={inputCls} value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} /></Field></div>
-        <Field label="Content type">
-          <select className={inputCls} value={draft.type} onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value as ContentType }))}>
-            <option value="lesson-plan">Lesson Plan</option>
-            <option value="question">Question</option>
-            <option value="quiz">Quiz</option>
+        <div className="sm:col-span-2"><Field label="Title"><input className={inputCls} value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} placeholder="Enter the title…" /></Field></div>
+        <Field label="Writer Name (optional)"><input className={inputCls} value={draft.writerName || ""} onChange={(e) => setDraft((d) => ({ ...d, writerName: e.target.value }))} placeholder="e.g. Rita Sharma" /></Field>
+        <Field label="Title Alignment">
+          <select className={inputCls} value={draft.titleAlign || "left"} onChange={(e) => setDraft((d) => ({ ...d, titleAlign: e.target.value as TeacherItem["titleAlign"] }))}>
+            <option value="left">Left</option>
+            <option value="centre">Centre</option>
+            <option value="right">Right</option>
           </select>
         </Field>
+        <div className="sm:col-span-2">
+          <span className={labelCls}>Cover Image (optional — text wraps around it)</span>
+          <ImageUploader label="Upload a cover/hero image" value={draft.coverImage} onChange={(url) => setDraft((d) => ({ ...d, coverImage: url }))} />
+        </div>
       </section>
+
+      {/* Live preview of title + writer */}
+      {draft.title ? (
+        <div className="card-panel">
+          <span className={labelCls}>Preview</span>
+          <div style={{ textAlign: draft.titleAlign === "centre" ? "center" : draft.titleAlign === "right" ? "right" : "left" }}>
+            {draft.coverImage ? (
+              <div>
+                <img src={draft.coverImage} alt="" className="float-left mb-2 mr-4 rounded-xl" style={{ width: 200, height: "auto" }} />
+                <h1 className="text-2xl font-extrabold text-slate-900">{draft.title}</h1>
+                {draft.writerName ? <p className="text-sm text-slate-500">By {draft.writerName}</p> : null}
+                <span className="block clear-both" />
+              </div>
+            ) : (
+              <div>
+                <h1 className="text-2xl font-extrabold text-slate-900">{draft.title}</h1>
+                {draft.writerName ? <p className="text-sm text-slate-500">By {draft.writerName}</p> : null}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <section>
         <h2 className="mb-2 text-sm font-black uppercase tracking-wide text-slate-500">Build content</h2>

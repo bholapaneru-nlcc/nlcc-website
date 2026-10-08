@@ -52,6 +52,9 @@ export interface Resource {
   teacherId: string;
   title: string;
   type: ResourceType;
+  writerName?: string;
+  titleAlign?: string;
+  coverImage?: string;
   blocks: unknown[];
   classIds: string[];
   createdAt: string;
